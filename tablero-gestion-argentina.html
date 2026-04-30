@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero de Gestión Territorial</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  /* ===================== RESET & BASE ===================== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #e8edf2;
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ===================== HEADER ===================== */
+  .header {
+    background: #1a3a6b;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    height: 64px;
+    gap: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .header-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 200px;
+    border-right: 1px solid rgba(255,255,255,0.25);
+    padding-right: 20px;
+    height: 100%;
+  }
+  .logo-circle {
+    width: 38px; height: 38px;
+    border: 2px solid rgba(255,255,255,0.7);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; color: #fff;
+  }
+  .logo-text { font-size: 10px; line-height: 1.3; color: rgba(255,255,255,0.85); }
+  .logo-text strong { display: block; font-size: 11px; }
+  .header-title {
+    flex: 1;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: #ffffff;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .header-right {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.85);
+    text-transform: uppercase;
+    min-width: 160px;
+    text-align: right;
+  }
+
+  /* ===================== MAIN LAYOUT ===================== */
+  .main {
+    display: grid;
+    grid-template-columns: 340px 260px 1fr;
+    gap: 12px;
+    padding: 12px;
+    min-height: calc(100vh - 64px);
+  }
+
+  /* ===================== CARDS ===================== */
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 14px;
+    cursor: default;
+  }
+  .card.clickable { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+  .card.clickable:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.15); }
+
+  /* ===================== MAP PANEL ===================== */
+  .map-panel { display: flex; flex-direction: column; gap: 10px; }
+  .map-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+    flex: 1;
+    min-height: 480px;
+    position: relative;
+  }
+  #map { width: 100%; height: 100%; min-height: 480px; }
+  .btn-back {
+    display: none;
+    background: #1a3a6b;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.2s;
+  }
+  .btn-back:hover { background: #2352a0; }
+  .btn-back.visible { display: block; }
+
+  /* ===================== CENTER COLUMN ===================== */
+  .indicators-col { display: flex; flex-direction: column; gap: 10px; }
+  .ind-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .ind-card:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.15); }
+  .ind-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: #4a90b8;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .ind-value {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .ind-value.blue { color: #1a3a6b; }
+  .ind-value.green { color: #2e7d32; }
+  .ind-value.yellow { color: #c8a000; }
+  .ind-value.cyan { color: #0277bd; }
+  .ind-value.purple { color: #6a1b9a; }
+  .ind-value.black { color: #333; }
+
+  /* ===================== RIGHT COLUMN ===================== */
+  .metrics-col { display: flex; flex-direction: column; gap: 10px; }
+  .metric-group {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .metric-group:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.15); }
+  .metric-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: #1a3a6b;
+    text-transform: uppercase;
+    border-bottom: 2px solid #1a3a6b;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+  .metric-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .metric-item { text-align: center; }
+  .metric-sub {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .metric-sub.dni { color: #1a3a6b; }
+  .metric-sub.passport { color: #4a90b8; }
+  .metric-num {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .metric-num.dark { color: #1a1a1a; }
+  .metric-num.burgundy { color: #8b0000; }
+  .metric-num.placeholder { color: #999; font-size: 22px; }
+
+  /* ===================== MODAL ===================== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 9000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 14px;
+    width: 90%;
+    max-width: 820px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .modal-header {
+    background: #1a3a6b;
+    color: #fff;
+    padding: 16px 24px;
+    border-radius: 14px 14px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-header h2 { font-size: 16px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .modal-close {
+    background: none; border: none; color: #fff;
+    font-size: 22px; cursor: pointer; line-height: 1;
+    opacity: 0.8; transition: opacity 0.2s;
+  }
+  .modal-close:hover { opacity: 1; }
+  .modal-body { padding: 24px; }
+  .modal-tabs {
+    display: flex; gap: 4px; margin-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+  }
+  .tab-btn {
+    padding: 8px 18px;
+    border: none; background: none;
+    font-size: 13px; font-weight: 600;
+    color: #666; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+  }
+  .tab-btn.active { color: #1a3a6b; border-bottom-color: #1a3a6b; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Monthly table */
+  .monthly-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .monthly-table th {
+    background: #1a3a6b; color: #fff;
+    padding: 8px 12px; text-align: center;
+    font-weight: 600; font-size: 11px; letter-spacing: 1px;
+  }
+  .monthly-table td { padding: 7px 12px; text-align: right; border-bottom: 1px solid #f0f0f0; }
+  .monthly-table td:first-child { text-align: left; color: #555; font-weight: 500; }
+  .monthly-table tr:hover td { background: #f7f9fb; }
+  .monthly-table tfoot td { font-weight: 700; color: #1a3a6b; border-top: 2px solid #1a3a6b; }
+
+  /* Center detail */
+  .center-detail-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;
+  }
+  .detail-field { background: #f7f9fb; border-radius: 6px; padding: 10px 14px; }
+  .detail-field label { display: block; font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+  .detail-field span { font-size: 14px; color: #1a1a1a; font-weight: 500; }
+  .detail-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+  .detail-stat { background: #fff; border: 1px solid #e0e8f0; border-radius: 8px; padding: 12px; text-align: center; }
+  .detail-stat .ds-label { font-size: 10px; font-weight: 700; color: #4a90b8; text-transform: uppercase; letter-spacing: 1px; }
+  .detail-stat .ds-value { font-size: 22px; font-weight: 700; color: #1a3a6b; }
+
+  /* Badge type */
+  .type-badge {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  }
+  .badge-rnp { background: #e8f5e9; color: #2e7d32; }
+  .badge-nornp { background: #fffde7; color: #c8a000; }
+  .badge-maletin { background: #e3f2fd; color: #0277bd; }
+  .badge-movil { background: #f3e5f5; color: #6a1b9a; }
+  .badge-operativo { background: #f5f5f5; color: #333; }
+
+  /* Loading */
+  .loading-overlay {
+    display: none; position: absolute; inset: 0;
+    background: rgba(255,255,255,0.8);
+    align-items: center; justify-content: center;
+    z-index: 100; border-radius: 10px;
+  }
+  .loading-overlay.show { display: flex; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 4px solid #ddd;
+    border-top-color: #1a3a6b;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Tooltip */
+  .leaflet-tooltip-custom {
+    background: #1a3a6b; color: #fff;
+    border: none; border-radius: 6px;
+    padding: 6px 10px; font-size: 12px;
+    line-height: 1.5; box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+  }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 40px 20px; color: #999; }
+  .empty-state p { font-size: 15px; margin-top: 8px; }
+
+  /* Chart container */
+  .chart-wrap { position: relative; width: 100%; height: 280px; margin-top: 16px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #f0f0f0; }
+  ::-webkit-scrollbar-thumb { background: #1a3a6b; border-radius: 3px; }
+
+  /* Province selected highlight */
+  .province-selected { fill: #4a90b8 !important; fill-opacity: 0.5 !important; }
+
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    .header-title { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================== HEADER ======================== -->
+<header class="header">
+  <div class="header-logo">
+    <div class="logo-circle">R</div>
+    <div class="logo-text">
+      <strong>Dirección de Tecnología e</strong>
+      Innovación Documental
+    </div>
+  </div>
+  <div class="header-title" id="headerTitle">PAÍS</div>
+  <div class="header-right">TABLERO DE GESTIÓN</div>
+</header>
+
+<!-- ======================== MAIN ======================== -->
+<div class="main">
+
+  <!-- LEFT: MAP -->
+  <div class="map-panel">
+    <div class="map-card">
+      <div id="map"></div>
+      <div class="loading-overlay" id="mapLoading"><div class="spinner"></div></div>
+    </div>
+    <button class="btn-back" id="btnBack" onclick="goToNational()">← Volver a País</button>
+  </div>
+
+  <!-- CENTER: INDICATORS -->
+  <div class="indicators-col">
+    <div class="ind-card" onclick="openIndicatorModal('totalOficinas')">
+      <div class="ind-label">TOTAL OFICINAS</div>
+      <div class="ind-value blue" id="val-totalOficinas">3.196</div>
+    </div>
+    <div class="ind-card" onclick="openIndicatorModal('oficinasRNP')">
+      <div class="ind-label">OFICINAS RNP</div>
+      <div class="ind-value green" id="val-oficinasRNP">161</div>
+    </div>
+    <div class="ind-card" onclick="openIndicatorModal('oficinasNoRNP')">
+      <div class="ind-label">OFICINAS NO RNP</div>
+      <div class="ind-value yellow" id="val-oficinasNoRNP">3.035</div>
+    </div>
+    <div class="ind-card" onclick="openIndicatorModal('maletines')">
+      <div class="ind-label">MALETINES</div>
+      <div class="ind-value cyan" id="val-maletines">589</div>
+    </div>
+    <div class="ind-card" onclick="openIndicatorModal('moviles')">
+      <div class="ind-label">MÓVILES</div>
+      <div class="ind-value purple" id="val-moviles">77</div>
+    </div>
+    <div class="ind-card" onclick="openIndicatorModal('operativos')">
+      <div class="ind-label">OPERATIVOS</div>
+      <div class="ind-value black" id="val-operativos">25</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: METRICS -->
+  <div class="metrics-col">
+    <div class="metric-group" onclick="openMetricModal('produccion2026')">
+      <div class="metric-title">PRODUCCIÓN TOTAL 2026</div>
+      <div class="metric-row">
+        <div class="metric-item">
+          <div class="metric-sub dni">DNI</div>
+          <div class="metric-num dark" id="val-prod2026-dni">1.987.190</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-sub passport">PASAPORTE</div>
+          <div class="metric-num dark" id="val-prod2026-pass">375.774</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="metric-group" onclick="openMetricModal('produccionMes')">
+      <div class="metric-title">PRODUCCIÓN MES EN CURSO</div>
+      <div class="metric-row">
+        <div class="metric-item">
+          <div class="metric-sub dni">DNI</div>
+          <div class="metric-num dark" id="val-prodMes-dni">677.477</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-sub passport">PASAPORTE</div>
+          <div class="metric-num dark" id="val-prodMes-pass">94.676</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="metric-group" onclick="openMetricModal('tramites2026')">
+      <div class="metric-title">TRÁMITES EN CURSO 2026</div>
+      <div class="metric-row">
+        <div class="metric-item">
+          <div class="metric-sub dni">DNI</div>
+          <div class="metric-num burgundy" id="val-tram2026-dni">268.222</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-sub passport">PASAPORTE</div>
+          <div class="metric-num placeholder" id="val-tram2026-pass">XXXXX</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="metric-group" onclick="openMetricModal('tramitesMes')">
+      <div class="metric-title">TRÁMITES EN CURSO MES ACTUAL</div>
+      <div class="metric-row">
+        <div class="metric-item">
+          <div class="metric-sub dni">DNI</div>
+          <div class="metric-num placeholder" id="val-tramMes-dni">XXXXX</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-sub passport">PASAPORTE</div>
+          <div class="metric-num placeholder" id="val-tramMes-pass">XXXXX</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== MODAL ======================== -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Detalle</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA — Reemplazar por fetch('/api/data') para datos reales
+// ============================================================
+
+// Formato argentino: punto para miles, coma para decimales
+function fmt(n) {
+  if (n === null || n === undefined || n === 0) return 'XXXXX';
+  return new Intl.NumberFormat('es-AR').format(Math.round(n));
+}
+function fmtNum(n) {
+  if (n === null || n === undefined) return '0';
+  return new Intl.NumberFormat('es-AR').format(Math.round(n));
+}
+
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// Datos nacionales iniciales
+// Para reemplazar: fetch('/api/national').then(r=>r.json()).then(d=>{ nationalTotals = d; updateDashboard(null); })
+const nationalTotals = {
+  totalOficinas: 3196,
+  oficinasRNP: 161,
+  oficinasNoRNP: 3035,
+  maletines: 589,
+  moviles: 77,
+  operativos: 25,
+  production2026: { dni: 1987190, pasaporte: 375774,
+    monthly: MONTHS.map((m,i) => ({ month: m, dni: i<4?Math.floor(Math.random()*300000+250000):0, pasaporte: i<4?Math.floor(Math.random()*70000+40000):0 }))
+  },
+  currentMonthProduction: { dni: 677477, pasaporte: 94676 },
+  pending2026: { dni: 268222, pasaporte: 0,
+    monthly: MONTHS.map((m,i) => ({ month: m, dni: i<4?Math.floor(Math.random()*80000+30000):0, pasaporte: 0 }))
+  },
+  currentMonthPending: { dni: 0, pasaporte: 0 }
+};
+
+// Provincias con datos
+// Para reemplazar: fetch('/api/provinces').then(r=>r.json()).then(d=>{ provinces = d; })
+const provinces = [
+  {
+    id: 'buenos-aires', name: 'Buenos Aires',
+    geoName: 'Buenos Aires',
+    totals: { totalOficinas:694, oficinasRNP:96, oficinasNoRNP:598, maletines:46, moviles:0, operativos:2 },
+    production2026: { dni:0, pasaporte:0, monthly: MONTHS.map(m=>({month:m,dni:0,pasaporte:0})) },
+    currentMonthProduction: { dni:0, pasaporte:0 },
+    pending2026: { dni:0, pasaporte:0, monthly: MONTHS.map(m=>({month:m,dni:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'c001', name:'Centro Tigre', type:'RNP', ownership:'propia', province:'Buenos Aires', locality:'Tigre', address:'Av. Cazón 586', lat:-34.426, lng:-58.579, dniProduction2026:5624, passportProduction2026:340, dniPending2026:120, passportPending2026:15, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?400+i*50:0,pasaporte:i<4?20+i*5:0})) },
+      { id:'c002', name:'Centro La Plata', type:'RNP', ownership:'propia', province:'Buenos Aires', locality:'La Plata', address:'Calle 7 N° 840', lat:-34.921, lng:-57.954, dniProduction2026:8430, passportProduction2026:620, dniPending2026:200, passportPending2026:30, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?700+i*60:0,pasaporte:i<4?50+i*8:0})) },
+      { id:'c003', name:'Agencia San Martín', type:'NoRNP', ownership:'no propia', province:'Buenos Aires', locality:'San Martín', address:'Belgrano 1020', lat:-34.57, lng:-58.538, dniProduction2026:3200, passportProduction2026:0, dniPending2026:80, passportPending2026:0, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?280+i*30:0,pasaporte:0})) },
+      { id:'c004', name:'Oficina Lomas de Zamora', type:'NoRNP', ownership:'no propia', province:'Buenos Aires', locality:'Lomas de Zamora', address:'Larroque 1550', lat:-34.762, lng:-58.404, dniProduction2026:2800, passportProduction2026:0, dniPending2026:60, passportPending2026:0, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?230+i*25:0,pasaporte:0})) },
+      { id:'c005', name:'Maletín Berazategui', type:'Maletin', ownership:'propia', province:'Buenos Aires', locality:'Berazategui', address:'Av. Mitre 2010', lat:-34.763, lng:-58.211, dniProduction2026:1200, passportProduction2026:80, dniPending2026:30, passportPending2026:5, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?100:0,pasaporte:i<4?6:0})) },
+      { id:'c006', name:'Operativo Quilmes', type:'Operativo', ownership:'propia', province:'Buenos Aires', locality:'Quilmes', address:'Italia 400', lat:-34.72, lng:-58.254, dniProduction2026:500, passportProduction2026:0, dniPending2026:10, passportPending2026:0, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?40:0,pasaporte:0})) },
+      { id:'c007', name:'Oficina Mar del Plata', type:'RNP', ownership:'propia', province:'Buenos Aires', locality:'Mar del Plata', address:'San Martín 2650', lat:-38.003, lng:-57.557, dniProduction2026:6100, passportProduction2026:450, dniPending2026:150, passportPending2026:20, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?500:0,pasaporte:i<4?35:0})) },
+      { id:'c008', name:'Móvil Bahía Blanca', type:'Movil', ownership:'propia', province:'Buenos Aires', locality:'Bahía Blanca', address:'Móvil operativo', lat:-38.72, lng:-62.269, dniProduction2026:800, passportProduction2026:40, dniPending2026:20, passportPending2026:2, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?65:0,pasaporte:i<4?3:0})) },
+    ]
+  },
+  {
+    id: 'cordoba', name: 'Córdoba',
+    geoName: 'Córdoba',
+    totals: { totalOficinas:312, oficinasRNP:18, oficinasNoRNP:294, maletines:62, moviles:8, operativos:4 },
+    production2026: { dni:320000, pasaporte:42000, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?80000:0,pasaporte:i<4?10500:0})) },
+    currentMonthProduction: { dni:85000, pasaporte:11000 },
+    pending2026: { dni:35000, pasaporte:0, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?8750:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'co001', name:'Centro Córdoba Capital', type:'RNP', ownership:'propia', province:'Córdoba', locality:'Córdoba', address:'Av. Colón 720', lat:-31.416, lng:-64.183, dniProduction2026:12000, passportProduction2026:1800, dniPending2026:400, passportPending2026:50, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?3000:0,pasaporte:i<4?450:0})) },
+      { id:'co002', name:'Agencia Villa María', type:'NoRNP', ownership:'no propia', province:'Córdoba', locality:'Villa María', address:'San Martín 380', lat:-32.408, lng:-63.244, dniProduction2026:4500, passportProduction2026:0, dniPending2026:100, passportPending2026:0, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?1125:0,pasaporte:0})) },
+    ]
+  },
+  {
+    id: 'santa-fe', name: 'Santa Fe',
+    geoName: 'Santa Fe',
+    totals: { totalOficinas:240, oficinasRNP:12, oficinasNoRNP:228, maletines:38, moviles:5, operativos:2 },
+    production2026: { dni:280000, pasaporte:35000, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?70000:0,pasaporte:i<4?8750:0})) },
+    currentMonthProduction: { dni:72000, pasaporte:9000 },
+    pending2026: { dni:28000, pasaporte:0, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?7000:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'sf001', name:'Centro Santa Fe Capital', type:'RNP', ownership:'propia', province:'Santa Fe', locality:'Santa Fe', address:'Brig. López 2650', lat:-31.633, lng:-60.7, dniProduction2026:9000, passportProduction2026:1200, dniPending2026:250, passportPending2026:30, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?2250:0,pasaporte:i<4?300:0})) },
+      { id:'sf002', name:'Oficina Rosario Norte', type:'RNP', ownership:'propia', province:'Santa Fe', locality:'Rosario', address:'Corrientes 1080', lat:-32.945, lng:-60.653, dniProduction2026:14000, passportProduction2026:2100, dniPending2026:380, passportPending2026:45, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?3500:0,pasaporte:i<4?525:0})) },
+    ]
+  },
+  {
+    id: 'mendoza', name: 'Mendoza',
+    geoName: 'Mendoza',
+    totals: { totalOficinas:148, oficinasRNP:8, oficinasNoRNP:140, maletines:22, moviles:4, operativos:1 },
+    production2026: { dni:150000, pasaporte:22000, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?37500:0,pasaporte:i<4?5500:0})) },
+    currentMonthProduction: { dni:40000, pasaporte:5800 },
+    pending2026: { dni:15000, pasaporte:0, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?3750:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'mz001', name:'Centro Mendoza Capital', type:'RNP', ownership:'propia', province:'Mendoza', locality:'Mendoza', address:'San Martín 1143', lat:-32.889, lng:-68.845, dniProduction2026:7500, passportProduction2026:1100, dniPending2026:180, passportPending2026:20, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?1875:0,pasaporte:i<4?275:0})) },
+    ]
+  },
+  {
+    id: 'tucuman', name: 'Tucumán',
+    geoName: 'Tucumán',
+    totals: { totalOficinas:120, oficinasRNP:6, oficinasNoRNP:114, maletines:18, moviles:3, operativos:1 },
+    production2026: { dni:120000, pasaporte:14000, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?30000:0,pasaporte:i<4?3500:0})) },
+    currentMonthProduction: { dni:32000, pasaporte:3700 },
+    pending2026: { dni:12000, pasaporte:0, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?3000:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'tu001', name:'Centro Tucumán', type:'RNP', ownership:'propia', province:'Tucumán', locality:'San Miguel de Tucumán', address:'Laprida 240', lat:-26.82, lng:-65.217, dniProduction2026:6000, passportProduction2026:700, dniPending2026:150, passportPending2026:10, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?1500:0,pasaporte:i<4?175:0})) },
+    ]
+  },
+  {
+    id: 'salta', name: 'Salta',
+    geoName: 'Salta',
+    totals: { totalOficinas:98, oficinasRNP:5, oficinasNoRNP:93, maletines:15, moviles:2, operativos:1 },
+    production2026: { dni:95000, pasaporte:9000, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?23750:0,pasaporte:i<4?2250:0})) },
+    currentMonthProduction: { dni:25000, pasaporte:2400 },
+    pending2026: { dni:9000, pasaporte:0, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?2250:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'sa001', name:'Centro Salta Capital', type:'RNP', ownership:'propia', province:'Salta', locality:'Salta', address:'Caseros 550', lat:-24.789, lng:-65.412, dniProduction2026:5000, passportProduction2026:450, dniPending2026:120, passportPending2026:0, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?1250:0,pasaporte:i<4?112:0})) },
+    ]
+  },
+  {
+    id: 'misiones', name: 'Misiones',
+    geoName: 'Misiones',
+    totals: { totalOficinas:78, oficinasRNP:4, oficinasNoRNP:74, maletines:12, moviles:2, operativos:1 },
+    production2026: { dni:70000, pasaporte:8500, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?17500:0,pasaporte:i<4?2125:0})) },
+    currentMonthProduction: { dni:18000, pasaporte:2200 },
+    pending2026: { dni:7000, pasaporte:0, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?1750:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'mi001', name:'Centro Posadas', type:'RNP', ownership:'propia', province:'Misiones', locality:'Posadas', address:'Colón 1950', lat:-27.367, lng:-55.9, dniProduction2026:3500, passportProduction2026:420, dniPending2026:90, passportPending2026:0, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?875:0,pasaporte:i<4?105:0})) },
+    ]
+  },
+  {
+    id: 'chaco', name: 'Chaco',
+    geoName: 'Chaco',
+    totals: { totalOficinas:88, oficinasRNP:4, oficinasNoRNP:84, maletines:14, moviles:2, operativos:1 },
+    production2026: { dni:75000, pasaporte:5000, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?18750:0,pasaporte:i<4?1250:0})) },
+    currentMonthProduction: { dni:20000, pasaporte:1300 },
+    pending2026: { dni:7500, pasaporte:0, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?1875:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'ch001', name:'Centro Resistencia', type:'RNP', ownership:'propia', province:'Chaco', locality:'Resistencia', address:'Av. Alberdi 200', lat:-27.451, lng:-58.987, dniProduction2026:3750, passportProduction2026:250, dniPending2026:95, passportPending2026:0, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?937:0,pasaporte:i<4?62:0})) },
+    ]
+  },
+  {
+    id: 'entre-rios', name: 'Entre Ríos',
+    geoName: 'Entre Ríos',
+    totals: { totalOficinas:102, oficinasRNP:5, oficinasNoRNP:97, maletines:16, moviles:3, operativos:1 },
+    production2026: { dni:100000, pasaporte:12000, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?25000:0,pasaporte:i<4?3000:0})) },
+    currentMonthProduction: { dni:27000, pasaporte:3100 },
+    pending2026: { dni:10000, pasaporte:0, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?2500:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'er001', name:'Centro Paraná', type:'RNP', ownership:'propia', province:'Entre Ríos', locality:'Paraná', address:'San Martín 785', lat:-31.732, lng:-60.524, dniProduction2026:5000, passportProduction2026:600, dniPending2026:130, passportPending2026:0, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?1250:0,pasaporte:i<4?150:0})) },
+    ]
+  },
+  {
+    id: 'neuquen', name: 'Neuquén',
+    geoName: 'Neuquén',
+    totals: { totalOficinas:72, oficinasRNP:4, oficinasNoRNP:68, maletines:10, moviles:2, operativos:0 },
+    production2026: { dni:68000, pasaporte:9000, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?17000:0,pasaporte:i<4?2250:0})) },
+    currentMonthProduction: { dni:18000, pasaporte:2400 },
+    pending2026: { dni:6500, pasaporte:0, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?1625:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'nq001', name:'Centro Neuquén Capital', type:'RNP', ownership:'propia', province:'Neuquén', locality:'Neuquén', address:'Av. Argentina 170', lat:-38.952, lng:-68.059, dniProduction2026:3400, passportProduction2026:450, dniPending2026:85, passportPending2026:0, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?850:0,pasaporte:i<4?112:0})) },
+    ]
+  },
+  {
+    id: 'rio-negro', name: 'Río Negro',
+    geoName: 'Río Negro',
+    totals: { totalOficinas:64, oficinasRNP:3, oficinasNoRNP:61, maletines:9, moviles:2, operativos:0 },
+    production2026: { dni:58000, pasaporte:7500, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?14500:0,pasaporte:i<4?1875:0})) },
+    currentMonthProduction: { dni:15000, pasaporte:2000 },
+    pending2026: { dni:5500, pasaporte:0, monthly: MONTHS.map((m,i)=>({month:m,dni:i<4?1375:0,pasaporte:0})) },
+    currentMonthPending: { dni:0, pasaporte:0 },
+    centers: [
+      { id:'rn001', name:'Centro Viedma', type:'RNP', ownership:'propia', province:'Río Negro', locality:'Viedma', address:'Buenos Aires 320', lat:-40.812, lng:-62.997, dniProduction2026:2900, passportProduction2026:375, dniPending2026:70, passportPending2026:0, monthlyProduction: MONTHS.map((m,i)=>({month:m,dni:i<4?725:0,pasaporte:i<4?93:0})) },
+    ]
+  },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let currentProvince = null;
+let map = null;
+let geoLayer = null;
+let markersLayer = null;
+let activeChart = null;
+
+// Province lookup by geoname
+function findProvince(geoName) {
+  return provinces.find(p => p.geoName === geoName || p.name === geoName);
+}
+
+// ============================================================
+// MAP INIT — Leaflet + GeoJSON Argentina
+// ============================================================
+function initMap() {
+  map = L.map('map', { zoomControl: true, attributionControl: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 18
+  }).addTo(map);
+
+  loadNationalGeoJSON();
+}
+
+function loadNationalGeoJSON() {
+  document.getElementById('mapLoading').classList.add('show');
+  // Load Argentina GeoJSON from CDN
+  fetch('https://cdn.jsdelivr.net/npm/datamaps@0.5.10/src/js/data/arg.topo.json')
+    .then(r => r.json())
+    .then(topo => {
+      // Convert topojson to geojson using topojson-client
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js';
+      script.onload = () => {
+        const geojson = topojson.feature(topo, topo.objects.arg);
+        renderNationalMap(geojson);
+      };
+      document.head.appendChild(script);
+    })
+    .catch(() => {
+      // Fallback: use simplified bounding box approach
+      document.getElementById('mapLoading').classList.remove('show');
+      map.setView([-38.4, -63.6], 4);
+      renderFallbackMap();
+    });
+}
+
+function renderNationalMap(geojson) {
+  if (geoLayer) { map.removeLayer(geoLayer); geoLayer = null; }
+  if (markersLayer) { map.removeLayer(markersLayer); markersLayer = null; }
+
+  geoLayer = L.geoJSON(geojson, {
+    style: feature => ({
+      fillColor: '#b8cfe8',
+      fillOpacity: 0.6,
+      color: '#1a3a6b',
+      weight: 1.5
+    }),
+    onEachFeature: (feature, layer) => {
+      const pName = feature.properties.name || feature.properties.NAME || '';
+      layer.on({
+        mouseover: e => {
+          e.target.setStyle({ fillColor: '#4a90b8', fillOpacity: 0.75 });
+          e.target.bindTooltip(pName, {
+            className: 'leaflet-tooltip-custom', direction: 'center', permanent: false
+          }).openTooltip();
+        },
+        mouseout: e => {
+          if (!currentProvince || currentProvince.geoName !== pName) {
+            geoLayer.resetStyle(e.target);
+          }
+          e.target.closeTooltip();
+        },
+        click: () => selectProvince(pName)
+      });
+    }
+  }).addTo(map);
+
+  map.fitBounds(geoLayer.getBounds(), { padding: [10, 10] });
+  document.getElementById('mapLoading').classList.remove('show');
+}
+
+function renderFallbackMap() {
+  // Simple Argentina outline fallback if GeoJSON fails
+  const argBounds = [[-55.06, -73.59], [-21.78, -53.64]];
+  map.fitBounds(argBounds);
+  const info = L.control();
+  info.onAdd = () => {
+    const div = L.DomUtil.create('div');
+    div.innerHTML = '<p style="color:#666;font-size:12px">Haz clic en provincias para filtrar</p>';
+    return div;
+  };
+  info.addTo(map);
+}
+
+// ============================================================
+// PROVINCE SELECTION
+// ============================================================
+function selectProvince(geoName) {
+  const prov = findProvince(geoName);
+  if (!prov) {
+    alert('No hay datos disponibles para ' + geoName);
+    return;
+  }
+  currentProvince = prov;
+  document.getElementById('headerTitle').textContent = prov.name.toUpperCase();
+  document.getElementById('btnBack').classList.add('visible');
+  updateIndicators(prov.totals);
+  updateMetrics(prov.production2026, prov.currentMonthProduction, prov.pending2026, prov.currentMonthPending);
+  zoomToProvince(prov);
+  renderCenterMarkers(prov.centers);
+}
+
+function zoomToProvince(prov) {
+  if (!geoLayer) return;
+  geoLayer.eachLayer(layer => {
+    const name = layer.feature?.properties?.name || layer.feature?.properties?.NAME || '';
+    if (name === prov.geoName || name === prov.name) {
+      geoLayer.resetStyle(layer);
+      layer.setStyle({ fillColor: '#1a3a6b', fillOpacity: 0.35, color: '#1a3a6b', weight: 2.5 });
+      try { map.fitBounds(layer.getBounds(), { padding: [30, 30] }); } catch(e) {}
+    } else {
+      layer.setStyle({ fillColor: '#d4dde8', fillOpacity: 0.3, color: '#aaa', weight: 1 });
+    }
+  });
+}
+
+function renderCenterMarkers(centers) {
+  if (markersLayer) { map.removeLayer(markersLayer); }
+  markersLayer = L.layerGroup();
+
+  centers.forEach(c => {
+    const color = markerColor(c.type);
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:20px; height:20px; border-radius:50% 50% 50% 0; background:${color};
+        border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.4);
+        transform:rotate(-45deg)"></div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 20]
+    });
+
+    const marker = L.marker([c.lat, c.lng], { icon });
+    marker.bindTooltip(`
+      <b>${c.name}</b><br>
+      Tipo: ${c.type}<br>
+      Localidad: ${c.locality}<br>
+      DNI 2026: ${fmtNum(c.dniProduction2026)}<br>
+      PAS 2026: ${fmtNum(c.passportProduction2026)}
+    `, { className: 'leaflet-tooltip-custom', direction: 'right' });
+
+    marker.on('click', () => openCenterModal(c));
+    markersLayer.addLayer(marker);
+  });
+
+  markersLayer.addTo(map);
+}
+
+function markerColor(type) {
+  const colors = {
+    'RNP': '#2e7d32',
+    'NoRNP': '#c8a000',
+    'Maletin': '#0277bd',
+    'Movil': '#6a1b9a',
+    'Operativo': '#444'
+  };
+  return colors[type] || '#888';
+}
+
+// ============================================================
+// NATIONAL VIEW
+// ============================================================
+function goToNational() {
+  currentProvince = null;
+  document.getElementById('headerTitle').textContent = 'PAÍS';
+  document.getElementById('btnBack').classList.remove('visible');
+  updateIndicators(nationalTotals);
+  updateMetrics(nationalTotals.production2026, nationalTotals.currentMonthProduction, nationalTotals.pending2026, nationalTotals.currentMonthPending);
+
+  if (markersLayer) { map.removeLayer(markersLayer); markersLayer = null; }
+
+  if (geoLayer) {
+    geoLayer.eachLayer(layer => geoLayer.resetStyle(layer));
+    geoLayer.eachLayer(layer => {
+      layer.setStyle({ fillColor: '#b8cfe8', fillOpacity: 0.6, color: '#1a3a6b', weight: 1.5 });
+    });
+    try { map.fitBounds(geoLayer.getBounds(), { padding: [10, 10] }); } catch(e) {}
+  }
+}
+
+// ============================================================
+// UPDATE DASHBOARD VALUES
+// ============================================================
+function updateIndicators(totals) {
+  document.getElementById('val-totalOficinas').textContent = fmtNum(totals.totalOficinas);
+  document.getElementById('val-oficinasRNP').textContent = fmtNum(totals.oficinasRNP);
+  document.getElementById('val-oficinasNoRNP').textContent = fmtNum(totals.oficinasNoRNP);
+  document.getElementById('val-maletines').textContent = fmtNum(totals.maletines);
+  document.getElementById('val-moviles').textContent = fmtNum(totals.moviles);
+  document.getElementById('val-operativos').textContent = fmtNum(totals.operativos);
+}
+
+function updateMetrics(prod2026, prodMes, pend2026, pendMes) {
+  setMetric('val-prod2026-dni', prod2026?.dni, 'dark');
+  setMetric('val-prod2026-pass', prod2026?.pasaporte, 'dark');
+  setMetric('val-prodMes-dni', prodMes?.dni, 'dark');
+  setMetric('val-prodMes-pass', prodMes?.pasaporte, 'dark');
+  setMetric('val-tram2026-dni', pend2026?.dni, 'burgundy');
+  setMetric('val-tram2026-pass', pend2026?.pasaporte, 'placeholder');
+  setMetric('val-tramMes-dni', pendMes?.dni, 'placeholder');
+  setMetric('val-tramMes-pass', pendMes?.pasaporte, 'placeholder');
+}
+
+function setMetric(id, val, cls) {
+  const el = document.getElementById(id);
+  el.className = 'metric-num';
+  if (!val || val === 0) {
+    el.classList.add('placeholder');
+    el.textContent = 'XXXXX';
+  } else {
+    el.classList.add(cls);
+    el.textContent = fmtNum(val);
+  }
+}
+
+// ============================================================
+// MODALS
+// ============================================================
+function openModal(title, content) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = content;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+}
+
+function closeModalOnBg(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+// Indicator modal (simple breakdown)
+function openIndicatorModal(key) {
+  const labels = {
+    totalOficinas: 'Total de Oficinas',
+    oficinasRNP: 'Oficinas RNP / Propias',
+    oficinasNoRNP: 'Oficinas No RNP / No Propias',
+    maletines: 'Maletines',
+    moviles: 'Móviles',
+    operativos: 'Operativos'
+  };
+  const data = currentProvince ? currentProvince.totals : nationalTotals;
+  const scope = currentProvince ? currentProvince.name : 'Nacional';
+  const val = data[key];
+
+  let rows = '';
+  if (currentProvince) {
+    currentProvince.centers.forEach(c => {
+      const t = c.type === 'RNP' ? 'RNP' : c.type === 'NoRNP' ? 'NoRNP' : c.type === 'Maletin' ? 'Maletin' : c.type;
+      const typeMap = { totalOficinas: true, oficinasRNP: t==='RNP', oficinasNoRNP: t==='NoRNP', maletines: t==='Maletin', moviles: t==='Movil', operativos: t==='Operativo' };
+      if (typeMap[key]) {
+        rows += `<tr><td>${c.name}</td><td>${c.locality}</td><td><span class="type-badge badge-${t.toLowerCase()}">${c.type}</span></td><td style="text-align:right">${fmtNum(c.dniProduction2026)}</td></tr>`;
+      }
+    });
+  } else {
+    provinces.forEach(p => {
+      rows += `<tr><td>${p.name}</td><td colspan="2">${scope}</td><td style="text-align:right">${fmtNum(p.totals[key])}</td></tr>`;
+    });
+  }
+
+  openModal(labels[key] + ' — ' + scope, `
+    <p style="color:#555;margin-bottom:16px;">Total: <strong style="color:#1a3a6b;font-size:20px">${fmtNum(val)}</strong></p>
+    <table class="monthly-table">
+      <thead><tr><th>Nombre</th><th>Localidad</th><th>Tipo</th><th>Producción DNI 2026</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px">Sin datos disponibles</td></tr>'}</tbody>
+    </table>
+  `);
+}
+
+// Metric modal (monthly breakdown)
+function openMetricModal(key) {
+  const titles = {
+    produccion2026: 'Producción Total 2026',
+    produccionMes: 'Producción Mes en Curso',
+    tramites2026: 'Trámites en Curso 2026',
+    tramitesMes: 'Trámites en Curso Mes Actual'
+  };
+  const scope = currentProvince ? currentProvince.name : 'Nacional';
+  const src = currentProvince || nationalTotals;
+
+  let monthly = [], dniTotal = 0, passTotal = 0;
+  if (key === 'produccion2026') {
+    monthly = src.production2026.monthly;
+    dniTotal = src.production2026.dni;
+    passTotal = src.production2026.pasaporte;
+  } else if (key === 'tramites2026') {
+    monthly = src.pending2026.monthly;
+    dniTotal = src.pending2026.dni;
+    passTotal = src.pending2026.pasaporte;
+  } else if (key === 'produccionMes') {
+    // Single row for current month
+    monthly = [{ month: 'Mes Actual', dni: src.currentMonthProduction.dni, pasaporte: src.currentMonthProduction.pasaporte }];
+    dniTotal = src.currentMonthProduction.dni;
+    passTotal = src.currentMonthProduction.pasaporte;
+  } else {
+    monthly = [{ month: 'Mes Actual', dni: src.currentMonthPending.dni, pasaporte: src.currentMonthPending.pasaporte }];
+    dniTotal = src.currentMonthPending.dni;
+    passTotal = src.currentMonthPending.pasaporte;
+  }
+
+  const rows = monthly.map(m => `
+    <tr><td>${m.month}</td>
+    <td>${m.dni > 0 ? fmtNum(m.dni) : '<span style="color:#ccc">—</span>'}</td>
+    <td>${m.pasaporte > 0 ? fmtNum(m.pasaporte) : '<span style="color:#ccc">—</span>'}</td>
+    </tr>`).join('');
+
+  const hasMonthly = monthly.length > 1;
+  const tabsHtml = hasMonthly ? `
+    <div class="modal-tabs">
+      <button class="tab-btn active" onclick="switchTab(event,'tab-table')">Tabla</button>
+      <button class="tab-btn" onclick="switchTab(event,'tab-chart')">Gráfico</button>
+    </div>` : '';
+
+  const chartId = 'modalChart_' + Date.now();
+  const dniData = monthly.map(m => m.dni);
+  const passData = monthly.map(m => m.pasaporte);
+  const labels = monthly.map(m => m.month.substring(0,3));
+
+  openModal(titles[key] + ' — ' + scope, `
+    ${tabsHtml}
+    <div class="tab-content active" id="tab-table">
+      <table class="monthly-table">
+        <thead><tr><th>MES</th><th>DNI</th><th>PASAPORTE</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td>TOTAL</td><td>${fmtNum(dniTotal) || '—'}</td><td>${fmtNum(passTotal) || '—'}</td></tr></tfoot>
+      </table>
+    </div>
+    ${hasMonthly ? `
+    <div class="tab-content" id="tab-chart">
+      <div class="chart-wrap">
+        <canvas id="${chartId}" role="img" aria-label="Gráfico de producción mensual DNI y Pasaporte"></canvas>
+      </div>
+    </div>` : ''}
+  `);
+
+  if (hasMonthly) {
+    setTimeout(() => {
+      const ctx = document.getElementById(chartId);
+      if (!ctx) return;
+      if (activeChart) { activeChart.destroy(); }
+      activeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'DNI', data: dniData, backgroundColor: '#1a3a6b', borderRadius: 4 },
+            { label: 'Pasaporte', data: passData, backgroundColor: '#4a90b8', borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 14 } }
+          },
+          scales: {
+            x: { ticks: { font: { size: 11 }, autoSkip: false } },
+            y: { ticks: { callback: v => fmtNum(v) } }
+          }
+        }
+      });
+    }, 50);
+  }
+}
+
+function switchTab(e, tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+  const tab = document.getElementById(tabId);
+  if (tab) tab.classList.add('active');
+}
+
+// Center detail modal
+function openCenterModal(c) {
+  const typeClass = c.type === 'RNP' ? 'badge-rnp' : c.type === 'NoRNP' ? 'badge-nornp' : c.type === 'Maletin' ? 'badge-maletin' : c.type === 'Movil' ? 'badge-movil' : 'badge-operativo';
+  const chartId = 'centerChart_' + c.id;
+
+  const rows = c.monthlyProduction.filter(m => m.dni > 0 || m.pasaporte > 0).map(m =>
+    `<tr><td>${m.month}</td><td>${fmtNum(m.dni)}</td><td>${fmtNum(m.pasaporte)}</td></tr>`
+  ).join('') || '<tr><td colspan="3" style="text-align:center;color:#999">Sin producción registrada</td></tr>';
+
+  openModal('Centro: ' + c.name, `
+    <div class="center-detail-grid">
+      <div class="detail-field"><label>Nombre</label><span>${c.name}</span></div>
+      <div class="detail-field"><label>Tipo</label><span><span class="type-badge ${typeClass}">${c.type}</span></span></div>
+      <div class="detail-field"><label>Titularidad</label><span>${c.ownership}</span></div>
+      <div class="detail-field"><label>Provincia</label><span>${c.province}</span></div>
+      <div class="detail-field"><label>Localidad</label><span>${c.locality}</span></div>
+      <div class="detail-field"><label>Dirección</label><span>${c.address}</span></div>
+      <div class="detail-field"><label>Coordenadas</label><span>${c.lat}, ${c.lng}</span></div>
+      <div class="detail-field"><label>ID Centro</label><span>${c.id}</span></div>
+    </div>
+    <div class="detail-stats">
+      <div class="detail-stat"><div class="ds-label">DNI 2026</div><div class="ds-value">${fmtNum(c.dniProduction2026)}</div></div>
+      <div class="detail-stat"><div class="ds-label">PAS 2026</div><div class="ds-value">${fmtNum(c.passportProduction2026)}</div></div>
+      <div class="detail-stat"><div class="ds-label">T. DNI 2026</div><div class="ds-value" style="color:#8b0000">${fmtNum(c.dniPending2026)}</div></div>
+      <div class="detail-stat"><div class="ds-label">T. PAS 2026</div><div class="ds-value" style="color:#8b0000">${fmtNum(c.passportPending2026)}</div></div>
+    </div>
+    <div style="margin-top:20px">
+      <div class="modal-tabs">
+        <button class="tab-btn active" onclick="switchTab(event,'ctab-table')">Producción Mensual</button>
+        <button class="tab-btn" onclick="switchTab(event,'ctab-chart')">Gráfico</button>
+      </div>
+      <div class="tab-content active" id="ctab-table">
+        <table class="monthly-table">
+          <thead><tr><th>MES</th><th>DNI</th><th>PASAPORTE</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="tab-content" id="ctab-chart">
+        <div class="chart-wrap">
+          <canvas id="${chartId}" role="img" aria-label="Producción mensual del centro ${c.name}"></canvas>
+        </div>
+      </div>
+    </div>
+  `);
+
+  setTimeout(() => {
+    const ctx = document.getElementById(chartId);
+    if (!ctx) return;
+    if (activeChart) activeChart.destroy();
+    const filtered = c.monthlyProduction.filter(m => m.dni > 0 || m.pasaporte > 0);
+    activeChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: filtered.map(m => m.month.substring(0,3)),
+        datasets: [
+          { label: 'DNI', data: filtered.map(m => m.dni), borderColor: '#1a3a6b', backgroundColor: 'rgba(26,58,107,0.1)', tension: 0.3, fill: true },
+          { label: 'Pasaporte', data: filtered.map(m => m.pasaporte), borderColor: '#4a90b8', backgroundColor: 'rgba(74,144,184,0.1)', tension: 0.3, fill: true }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } } },
+        scales: { y: { ticks: { callback: v => fmtNum(v) } } }
+      }
+    });
+  }, 50);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  updateIndicators(nationalTotals);
+  updateMetrics(nationalTotals.production2026, nationalTotals.currentMonthProduction, nationalTotals.pending2026, nationalTotals.currentMonthPending);
+});
+</script>
+</body>
+</html>
